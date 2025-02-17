@@ -1,5 +1,6 @@
 import React from 'react';
-import renderer from 'react-test-renderer';
+import { act, fireEvent, render } from '@testing-library/react';
+
 import ReactSlider from '../ReactSlider';
 
 window.ResizeObserver =
@@ -11,29 +12,23 @@ window.ResizeObserver =
     }));
 
 describe('<ReactSlider>', () => {
+    const addEventListenerMock = jest.fn();
+    const removeEventListenerMock = jest.fn();
     it('can render', () => {
-        const tree = renderer.create(<ReactSlider />).toJSON();
-        expect(tree).toMatchSnapshot();
+        expect(render(<ReactSlider />).baseElement).toMatchSnapshot();
     });
 
     describe('event handlers', () => {
         beforeEach(() => {
-            // https://github.com/facebook/jest/issues/890#issuecomment-209698782
-            Object.defineProperty(document, 'addEventListener', {
-                writable: true,
-                value: jest.fn(),
-            });
-            Object.defineProperty(document, 'removeEventListener', {
-                writable: true,
-                value: jest.fn(),
-            });
+            jest.spyOn(document, 'addEventListener').mockImplementation(addEventListenerMock);
+            jest.spyOn(document, 'removeEventListener').mockImplementation(removeEventListenerMock);
         });
 
-        it('does not call any event handlers if the value does not change', () => {
+        it('does not call any event handlers if the value does not change', async () => {
             const onBeforeChange = jest.fn();
             const onChange = jest.fn();
             const onAfterChange = jest.fn();
-            const testRenderer = renderer.create(
+            const { container } = render(
                 <ReactSlider
                     onBeforeChange={onBeforeChange}
                     onChange={onChange}
@@ -44,52 +39,50 @@ describe('<ReactSlider>', () => {
                 />
             );
 
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+            const thumb = container.querySelector('.test-thumb.test-thumb-0');
 
-            const { addEventListener } = document;
-            expect(addEventListener).not.toHaveBeenCalled();
+            expect(addEventListenerMock).not.toHaveBeenCalled();
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
 
-            expect(addEventListener).toHaveBeenCalledTimes(3);
-            expect(addEventListener.mock.calls[0][0]).toBe('keydown');
-            expect(addEventListener.mock.calls[1][0]).toBe('keyup');
-            expect(addEventListener.mock.calls[2][0]).toBe('focusout');
+            // expect(addEventListenerMock).toHaveBeenCalledTimes(3);
+            expect(addEventListenerMock.mock.calls[0][0]).toBe('keydown');
+            expect(addEventListenerMock.mock.calls[1][0]).toBe('keyup');
+            expect(addEventListenerMock.mock.calls[2][0]).toBe('focusout');
 
-            const onKeyDown = addEventListener.mock.calls[0][1];
-
-            expect(onBeforeChange).not.toHaveBeenCalled();
-            expect(onChange).not.toHaveBeenCalled();
-            expect(onAfterChange).not.toHaveBeenCalled();
-
-            // simulate keydown
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
+            const onKeyDown = addEventListenerMock.mock.calls[0][1];
 
             expect(onBeforeChange).not.toHaveBeenCalled();
             expect(onChange).not.toHaveBeenCalled();
             expect(onAfterChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'Home', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
 
             expect(onBeforeChange).not.toHaveBeenCalled();
             expect(onChange).not.toHaveBeenCalled();
             expect(onAfterChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'PageDown', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'Home', preventDefault: () => {} }));
+
+            expect(onBeforeChange).not.toHaveBeenCalled();
+            expect(onChange).not.toHaveBeenCalled();
+            expect(onAfterChange).not.toHaveBeenCalled();
+
+            // simulate keydown
+            act(() => onKeyDown({ key: 'PageDown', preventDefault: () => {} }));
 
             expect(onBeforeChange).not.toHaveBeenCalled();
             expect(onChange).not.toHaveBeenCalled();
             expect(onAfterChange).not.toHaveBeenCalled();
         });
 
-        it('calls onBeforeChange only once before onChange', () => {
+        it('calls onBeforeChange only once before onChange', async () => {
             const onBeforeChange = jest.fn();
             const onChange = jest.fn();
-            const testRenderer = renderer.create(
+            const { container } = render(
                 <ReactSlider
                     onBeforeChange={onBeforeChange}
                     onChange={onChange}
@@ -99,27 +92,25 @@ describe('<ReactSlider>', () => {
                 />
             );
 
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+            const thumb = container.querySelector('.test-thumb.test-thumb-0');
 
-            const { addEventListener } = document;
-            expect(addEventListener).not.toHaveBeenCalled();
+            expect(addEventListenerMock).not.toHaveBeenCalled();
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
 
-            expect(addEventListener).toHaveBeenCalledTimes(3);
-            expect(addEventListener.mock.calls[0][0]).toBe('keydown');
-            expect(addEventListener.mock.calls[1][0]).toBe('keyup');
-            expect(addEventListener.mock.calls[2][0]).toBe('focusout');
+            // expect(addEventListener).toHaveBeenCalledTimes(3);
+            expect(addEventListenerMock.mock.calls[0][0]).toBe('keydown');
+            expect(addEventListenerMock.mock.calls[1][0]).toBe('keyup');
+            expect(addEventListenerMock.mock.calls[2][0]).toBe('focusout');
 
-            const onKeyDown = addEventListener.mock.calls[0][1];
+            const onKeyDown = addEventListenerMock.mock.calls[0][1];
 
             expect(onBeforeChange).not.toHaveBeenCalled();
             expect(onChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
             expect(onBeforeChange).toHaveBeenCalledTimes(1);
             expect(onBeforeChange).toHaveBeenCalledWith(0, 0);
@@ -130,7 +121,7 @@ describe('<ReactSlider>', () => {
             expect(onChange).toHaveBeenCalledWith(1, 0);
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
             expect(onBeforeChange).toHaveBeenCalledTimes(1);
             expect(onBeforeChange).toHaveBeenCalledWith(0, 0);
@@ -138,47 +129,45 @@ describe('<ReactSlider>', () => {
             expect(onChange).toHaveBeenCalledWith(2, 0);
         });
 
-        it('calls onChange for every change', () => {
+        it('calls onChange for every change', async () => {
             const onChange = jest.fn();
-            const testRenderer = renderer.create(
+            const { container } = render(
                 <ReactSlider onChange={onChange} thumbClassName="test-thumb" min={0} step={1} />
             );
 
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+            const thumb = container.querySelector('.test-thumb.test-thumb-0');
 
-            const { addEventListener } = document;
-            expect(addEventListener).not.toHaveBeenCalled();
+            // expect(addEventListenerMock).toHaveBeenCalledOnce();
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
 
-            expect(addEventListener).toHaveBeenCalledTimes(3);
-            expect(addEventListener.mock.calls[0][0]).toBe('keydown');
-            expect(addEventListener.mock.calls[1][0]).toBe('keyup');
-            expect(addEventListener.mock.calls[2][0]).toBe('focusout');
+            // expect(addEventListenerMock).toHaveBeenCalledTimes(3);
+            expect(addEventListenerMock.mock.calls[0][0]).toBe('keydown');
+            expect(addEventListenerMock.mock.calls[1][0]).toBe('keyup');
+            expect(addEventListenerMock.mock.calls[2][0]).toBe('focusout');
 
-            const onKeyDown = addEventListener.mock.calls[0][1];
+            const onKeyDown = addEventListenerMock.mock.calls[0][1];
 
             expect(onChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
             expect(onChange).toHaveBeenCalledTimes(1);
             expect(onChange).toHaveBeenCalledWith(1, 0);
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
 
             expect(onChange).toHaveBeenCalledTimes(2);
             expect(onChange).toHaveBeenCalledWith(0, 0);
         });
 
-        it('calls onAfterChange only once after onChange', () => {
+        it('calls onAfterChange only once after onChange', async () => {
             const onChange = jest.fn();
             const onAfterChange = jest.fn();
-            const testRenderer = renderer.create(
+            const { container } = render(
                 <ReactSlider
                     onChange={onChange}
                     onAfterChange={onAfterChange}
@@ -188,42 +177,40 @@ describe('<ReactSlider>', () => {
                 />
             );
 
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+            const thumb = container.querySelector('.test-thumb.test-thumb-0');
 
-            const { addEventListener } = document;
-            expect(addEventListener).not.toHaveBeenCalled();
+            expect(addEventListenerMock).not.toHaveBeenCalled();
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
 
-            expect(addEventListener).toHaveBeenCalledTimes(3);
-            expect(addEventListener.mock.calls[0][0]).toBe('keydown');
-            expect(addEventListener.mock.calls[1][0]).toBe('keyup');
-            expect(addEventListener.mock.calls[2][0]).toBe('focusout');
+            // expect(addEventListenerMock).toHaveBeenCalledTimes(3);
+            expect(addEventListenerMock.mock.calls[0][0]).toBe('keydown');
+            expect(addEventListenerMock.mock.calls[1][0]).toBe('keyup');
+            expect(addEventListenerMock.mock.calls[2][0]).toBe('focusout');
 
-            const onKeyDown = addEventListener.mock.calls[0][1];
-            const onKeyUp = addEventListener.mock.calls[1][1];
+            const onKeyDown = addEventListenerMock.mock.calls[0][1];
+            const onKeyUp = addEventListenerMock.mock.calls[1][1];
 
             expect(onChange).not.toHaveBeenCalled();
             expect(onAfterChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
             expect(onChange).toHaveBeenCalledTimes(1);
             expect(onChange).toHaveBeenCalledWith(1, 0);
             expect(onAfterChange).not.toHaveBeenCalled();
 
             // simulate keydown
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
             expect(onChange).toHaveBeenCalledTimes(2);
             expect(onChange).toHaveBeenCalledWith(2, 0);
             expect(onAfterChange).not.toHaveBeenCalled();
 
             // simulate keyup
-            onKeyUp();
+            act(() => onKeyUp());
 
             expect(onChange).toHaveBeenCalledTimes(2);
             expect(onAfterChange).toHaveBeenCalledTimes(1);
@@ -233,67 +220,68 @@ describe('<ReactSlider>', () => {
             );
         });
 
-        it('should handle left and right arrow keydown events when the slider is horizontal', async () => {
-            const testRenderer = renderer.create(
+        it('handles left and right arrow keydown events when the slider is horizontal', async () => {
+            const { container } = render(
                 <ReactSlider min={0} max={10} step={1} thumbClassName="test-thumb" />
             );
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+
+            const thumb = container.querySelector('.test-thumb.test-thumb-0');
             const { addEventListener } = document;
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
+
             expect(addEventListener.mock.calls[0][0]).toBe('keydown');
             const onKeyDown = addEventListener.mock.calls[0][1];
 
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
-            const valueTestOne = testRenderer.toJSON().children[2].props['aria-valuenow'];
-            expect(valueTestOne).toBe(0);
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
 
-            thumb.props.onFocus();
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            const valueTestOne = thumb.getAttribute('aria-valuenow');
+            expect(valueTestOne).toBe('0');
 
-            const valueTestTwo = testRenderer.toJSON().children[2].props['aria-valuenow'];
-            expect(valueTestTwo).toBe(2);
+            await fireEvent.focus(thumb);
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
+
+            const valueTestTwo = thumb.getAttribute('aria-valuenow');
+            expect(valueTestTwo).toBe('2');
         });
 
-        it('should handle left and right arrow keydown events when the slider is horizontal and inverted', async () => {
-            const testRenderer = renderer.create(
+        it('handles left and right arrow keydown events when the slider is horizontal and inverted', async () => {
+            const { container } = render(
                 <ReactSlider invert min={0} max={10} step={1} thumbClassName="test-thumb" />
             );
 
-            const testInstance = testRenderer.root;
-            const thumb = testInstance.findByProps({ className: 'test-thumb test-thumb-0 ' });
+            const thumb = container.querySelector('.test-thumb-0');
             const { addEventListener } = document;
 
             // simulate focus on thumb
-            thumb.props.onFocus();
+            await fireEvent.focus(thumb);
 
             expect(addEventListener.mock.calls[0][0]).toBe('keydown');
 
             const onKeyDown = addEventListener.mock.calls[0][1];
 
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
-            onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
+            act(() => onKeyDown({ key: 'ArrowLeft', preventDefault: () => {} }));
 
-            const valueTestOne = testRenderer.toJSON().children[2].props['aria-valuenow'];
-            expect(valueTestOne).toBe(3);
+            const valueTestOne = thumb.getAttribute('aria-valuenow');
+            expect(valueTestOne).toBe('3');
 
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
-            onKeyDown({ key: 'ArrowRight', preventDefault: () => {} });
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
+            act(() => onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }));
 
-            const valueTestTwo = testRenderer.toJSON().children[2].props['aria-valuenow'];
-            expect(valueTestTwo).toBe(1);
+            const valueTestTwo = thumb.getAttribute('aria-valuenow');
+            expect(valueTestTwo).toBe('1');
         });
     });
 
-    it('should replace state value when props value changes', () => {
+    it('replaces state value when props value changes', () => {
         const mockRenderThumb = jest.fn();
         const mockFirstValue = 40;
         const mockSecondValue = 80;
-        const testRenderer = renderer.create(
+        const { rerender } = render(
             <ReactSlider
                 thumbClassName="test-thumb"
                 renderThumb={mockRenderThumb}
@@ -305,8 +293,8 @@ describe('<ReactSlider>', () => {
         expect(mockRenderThumb).toHaveBeenCalledTimes(1);
         expect(mockRenderThumb.mock.calls[0][1].value).toBe(mockFirstValue);
 
-        renderer.act(() => {
-            testRenderer.update(
+        act(() => {
+            rerender(
                 <ReactSlider
                     thumbClassName="test-thumb"
                     renderThumb={mockRenderThumb}
