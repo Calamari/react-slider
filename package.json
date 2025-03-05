@@ -20,9 +20,6 @@
     }
   },
   "sideEffects": false,
-  "files": [
-    "dist"
-  ],
   "keywords": [
     "react-component",
     "react",
